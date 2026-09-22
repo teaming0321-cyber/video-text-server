@@ -51,7 +51,7 @@ def process_video():
         # フォント設定 (デフォルトフォント)
         font_size = int(height * 0.05)
         try:
-            font = ImageFont.truetype("DejaVuSans.ttf", font_size)
+            font = ImageFont.truetype("NotoSansJP-Bold.ttf", font_size)
         except:
             font = ImageFont.load_default()
 
