@@ -48,38 +48,64 @@ def process_video():
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
-        # フォント設定 (デフォルトフォント)
-        font_size = int(height * 0.05)
-        try:
-            font = ImageFont.truetype("NotoSansJP-Bold.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
+# --- 1. 自動改行（画面幅に収める）関数 ---
+    def wrap_text(text, font, max_width):
+        lines = []
+        current_line = ""
+        for char in text:
+            test_line = current_line + char
+            bbox = font.getbbox(test_line)
+            if bbox[2] - bbox[0] <= max_width:
+                current_line = test_line
+            else:
+                lines.append(current_line)
+                current_line = char
+        if current_line:
+            lines.append(current_line)
+        return "\n".join(lines)
 
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
+    # --- 2. フォント設定 ---
+    font_size = int(height * 0.05)  # 文字の大きさ
+    try:
+        font = ImageFont.truetype("NotoSansJP-Bold.ttf", font_size)
+    except:
+        font = ImageFont.load_default()
 
-            # BGRからRGB変換してPIL Imageへ
-            img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            draw = ImageDraw.Draw(img_pil)
+    # 画面幅の80%以内に収まるよう自動改行
+    wrapped_text = wrap_text(text, font, int(width * 0.8))
 
-            # テキストサイズの計算と中央下部への配置
-            bbox = draw.textbbox((0, 0), text, font=font)
-            text_w = bbox[2] - bbox[0]
-            text_h = bbox[3] - bbox[1]
-            x = (width - text_w) // 2
-            y = int(height * 0.8) - text_h // 2
+    # --- 3. 動画フレーム処理 ---
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-            # 背景座布団（見やすくするための黒枠）
-            margin = 15
-            draw.rectangle([x - margin, y - margin, x + text_w + margin, y + text_h + margin], fill=(0, 0, 0, 160))
-            # 白文字の描画
-            draw.text((x, y), text, font=font, fill=(255, 255, 255))
+        # OpenCV(BGR) -> PIL(RGB)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img_pil = Image.fromarray(frame_rgb)
+        draw = ImageDraw.Draw(img_pil)
 
-            # フレーム書き込み
-            frame_out = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
-            out.write(frame_out)
+        # テキスト全体の位置を計算（画面中央に配置）
+        bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font, align="center")
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+        x = (width - text_w) / 2
+        y = (height - text_h) / 2
+
+        # ★ 黒枠（draw.rectangle）は削除し、白文字＋黒フチで描画
+        draw.multiline_text(
+            (x, y),
+            wrapped_text,
+            font=font,
+            fill=(255, 255, 255),  # 文字色：白
+            stroke_width=3,        # 黒い縁取りの太さ
+            stroke_fill=(0, 0, 0), # 縁取りの色：黒
+            align="center"         # 中央揃え
+        )
+
+        # PIL(RGB) -> OpenCV(BGR)
+        frame_bgr = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+        out.write(frame_bgr)
 
         cap.release()
         out.release()
