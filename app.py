@@ -48,21 +48,24 @@ def process_video():
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
-    # --- 1. 自動改行（画面幅に収める）関数 ---
+    # --- 1. 自動改行（手動改行 \n を尊重する）関数 ---
     def wrap_text(text, font, max_width):
-        lines = []
-        current_line = ""
-        for char in text:
-            test_line = current_line + char
-            bbox = font.getbbox(test_line)
-            if bbox[2] - bbox[0] <= max_width:
-                current_line = test_line
-            else:
-                lines.append(current_line)
-                current_line = char
-        if current_line:
-            lines.append(current_line)
-        return "\n".join(lines)
+        # 最初に \n（改行）で文章を分割
+        paragraphs = text.split('\n')
+        wrapped_lines = []
+        for paragraph in paragraphs:
+            current_line = ""
+            for char in paragraph:
+                test_line = current_line + char
+                bbox = font.getbbox(test_line)
+                if bbox[2] - bbox[0] <= max_width:
+                    current_line = test_line
+                else:
+                    wrapped_lines.append(current_line)
+                    current_line = char
+            if current_line:
+                wrapped_lines.append(current_line)
+        return "\n".join(wrapped_lines)
 
     # --- 2. フォント設定 ---
     font_size = int(height * 0.05)
